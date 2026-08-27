@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>认知诊疗室 2.0 · 一剑封喉去噪</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-accent="teal">
+<div id="app">
+  <!-- 侧栏 -->
+  <aside id="sidebar">
+    <div class="logo">
+      <div class="logo-mark">诊</div>
+      <div>
+        <h1>认知诊疗室</h1>
+        <p class="sub">v2.0 · 以逻辑为骨架</p>
+      </div>
+    </div>
+
+    <!-- 导航菜单 -->
+    <nav class="nav-menu">
+      <button class="nav-item active" data-view="chat">💬 对话诊断</button>
+      <button class="nav-item" data-view="reports">📰 研报浏览器</button>
+      <button class="nav-item" data-view="kb">📚 知识库管理</button>
+    </nav>
+
+    <div id="statusPanel" class="panel status-panel">
+      <div class="row"><span>方法论库</span><b id="stKb">加载中…</b></div>
+      <div class="row"><span>检索方式</span><b id="stRetrieval">—</b></div>
+      <div class="row"><span>LLM</span><b id="stLlm">—</b></div>
+      <button id="btnSettings" class="ghost-btn">⚙️ 设置</button>
+    </div>
+
+    <div class="panel hist-panel">
+      <h3>🩺 诊断档案</h3>
+      <select id="histSel" class="sel hist-sel">
+        <option value="">— 选择恢复诊断 —</option>
+      </select>
+      <div class="hist-actions">
+        <button id="btnNewChat" class="ghost-btn sm">🆕 新诊疗</button>
+        <button id="btnDelHist" class="ghost-btn sm">🗑 删除选中</button>
+      </div>
+    </div>
+
+    <div class="panel examples">
+      <h3>试试贴入这类文本</h3>
+      <button class="ex" data-q="【示例·研报】尽管民营企业投资数据有所下滑，但信心指数调研显示预期正在改善。历史规律表明，社融见底后市场必然迎来大反弹，当前流动性充沛，强烈推荐买入。">📰 假研报（含四类毒素）</button>
+      <button class="ex" data-q="我们要一分为二地看当前经济：虽然面临需求不足的困难，但也蕴藏着高质量发展的历史机遇。">🗣 官方叙事样本</button>
+      <button class="ex" data-q="什么是观念实体化？">📖 什么是观念实体化？</button>
+      <button class="ex" data-q="定性先于定量是什么意思？">🧭 定性先于定量？</button>
+    </div>
+
+    <footer>本地方法论知识库 · 四大滤网 · 五维评分</footer>
+  </aside>
+
+  <!-- 主区：对话 -->
+  <main id="main-chat" class="main-view active">
+    <header id="topbar">
+      <span>粘贴研报/长文自动进入完整诊断（五维打分+反向阅读）；短问题直接解答方法论</span>
+    </header>
+    <div id="chat"></div>
+    <div id="composer">
+      <div class="composer-row">
+        <button id="uploadBtn" class="upload-btn" title="上传文件（支持 .txt .md .pdf .csv）">📎</button>
+        <input type="file" id="fileInput" accept=".txt,.md,.csv,.pdf" multiple hidden>
+        <textarea id="input" rows="1" placeholder="粘贴研报全文开始诊断，或直接提问…（Enter 发送 / Shift+Enter 换行）"></textarea>
+        <button id="send" title="发送">➤</button>
+      </div>
+      <div id="filePreview" class="file-preview hidden"></div>
+    </div>
+  </main>
+
+  <!-- 主区：研报浏览器 -->
+  <main id="main-reports" class="main-view">
+    <header class="view-header">
+      <h2>📰 研报浏览器</h2>
+      <p>实时抓取中金、中信、慧博等机构研报，自动进行政治因素剥离与反向阅读分析</p>
+      <button id="btnCrawl" class="primary-btn">🔄 刷新研报</button>
+    </header>
+    <div id="reportsList" class="reports-grid">
+      <div class="empty-state">点击"刷新研报"抓取最新内容</div>
+    </div>
+  </main>
+
+  <!-- 主区：知识库 -->
+  <main id="main-kb" class="main-view">
+    <header class="view-header">
+      <h2>📚 知识库管理</h2>
+      <p>查看和管理方法论知识库内容</p>
+    </header>
+    <div id="kbList" class="kb-grid"></div>
+  </main>
+</div>
+
+<!-- 设置页面 -->
+<div id="settingsPage" class="hidden">
+  <div class="settings-inner">
+    <header class="sp-head">
+      <h2>⚙️ 设置</h2>
+      <button id="settingsClose" class="ghost-btn">✕ 关闭</button>
+    </header>
+
+    <section class="set-section">
+      <h3>🧠 模型服务</h3>
+      <p class="sec-note">本地服务（llama.cpp / Ollama）无需密钥；云端需填 API Key</p>
+      <div class="field-grid">
+        <label>API 地址
+          <input id="cfgBaseUrl" placeholder="http://127.0.0.1:8080/v1">
+        </label>
+        <label>模型名
+          <input id="cfgModel" placeholder="local-gguf / deepseek-chat …">
+        </label>
+        <label class="span2">API Key<span class="opt">（本地服务留空即可）</span>
+          <input id="cfgApiKey" type="password" autocomplete="off" placeholder="sk-… 留空则保持已保存密钥不变">
+        </label>
+      </div>
+      <div class="row-actions">
+        <button id="cfgSave" class="primary-btn">💾 保存配置</button>
+        <button id="cfgTest" class="ghost-btn">🔌 测试连接</button>
+        <span id="testResult" class="test-result"></span>
+      </div>
+    </section>
+
+    <section class="set-section">
+      <h3>🎨 界面外观</h3>
+      <div class="appearance-row">
+        <span class="ap-label">主题色</span>
+        <div id="accentRow" class="accent-row"></div>
+      </div>
+      <div class="appearance-row">
+        <span class="ap-label">明暗模式</span>
+        <div class="seg-group" id="modeSeg">
+          <button data-v="light">☀️ 浅色</button>
+          <button data-v="dark">🌙 深色</button>
+          <button data-v="auto">🖥️ 跟随系统</button>
+        </div>
+      </div>
+      <div class="appearance-row">
+        <span class="ap-label">字号大小</span>
+        <div class="seg-group font-seg" id="sizeSeg">
+          <button data-v="13.5px">小</button>
+          <button data-v="15px">标准</button>
+          <button data-v="16.5px">大</button>
+          <button data-v="18px">特大</button>
+        </div>
+      </div>
+      <p class="sec-note">外观设置即时生效并保存在本机浏览器</p>
+    </section>
+
+    <section class="set-section about-sec">
+      <h3>📖 关于</h3>
+      <p>认知诊疗室 2.0 — 以形式逻辑为骨架的去噪识别工具：四大滤网解剖媒体与研报叙事，五维25分制自动评分，高度噪音自动给出反向阅读指示。</p>
+      <p id="kbAbout" class="dim"></p>
+    </section>
+  </div>
+</div>
+
+<!-- 去噪分析弹窗 -->
+<div id="denoiseModal" class="modal hidden">
+  <div class="modal-box">
+    <header class="modal-head">
+      <h2 id="modalTitle">去噪分析</h2>
+      <button class="modal-close" onclick="closeDenoiseModal()">✕</button>
+    </header>
+    <div id="denoiseResult" class="modal-body"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
