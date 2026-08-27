@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run denoiser smoke tests
+        run: node scripts/smoke-test.js
+
+      - name: Start server & health check
+        run: |
+          # 无 API Key / 无模型缓存环境下，服务器应能以降级 TF-IDF 模式正常启动
+          HF_ENDPOINT="http://127.0.0.1:9" node server.js > server-ci.log 2>&1 &
+          SERVER_PID=$!
+          # 轮询 /api/status 直到就绪或超时（最多 40s）
+          for i in $(seq 1 40); do
+            if curl -sf --max-time 3 http://localhost:3220/api/status > /tmp/status.json 2>/dev/null; then
+              echo "✅ Server is up (attempt $i)"
+              cat /tmp/status.json
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -sf --max-time 3 http://localhost:3220/api/status > /tmp/status.json 2>/dev/null; then
+            echo "❌ Server failed to start"
+            cat server-ci.log || true
+            exit 1
+          fi
+          # 校验知识库就绪
+          node -e "const s=require('fs').readFileSync('/tmp/status.json','utf8'); const j=JSON.parse(s); if(!j.kbReady){console.error('kb not ready');process.exit(1)}; console.log('✅ kbReady:', j.kbReady, '| chunks:', j.chunks, '| mode:', j.retrieval)"
+          kill $SERVER_PID || true
